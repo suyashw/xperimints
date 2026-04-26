@@ -12,11 +12,12 @@
     }
   },
   "scripts": {
+    "postinstall": "prisma generate",
     "generate": "prisma generate",
     "migrate:dev": "prisma migrate dev",
     "push": "prisma db push",
     "studio": "prisma studio",
-    "build": "tsc -p tsconfig.json",
+    "build": "prisma generate && tsc -p tsconfig.json",
     "lint": "echo 'no-op'",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "echo 'no tests'",
