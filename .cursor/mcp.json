@@ -1,0 +1,15 @@
+{
+  "_comment": "Project-scoped MCP server registration for Cursor. The `xperi` server exposes the Xperimints experiment lab so agents can list/create/cancel experiments and inspect Peec resources from chat. Use the matching `/xperi` slash command (.cursor/commands/xperi.md) as the friendly entry point.",
+  "mcpServers": {
+    "xperi": {
+      "command": "node",
+      "args": [
+        "--env-file=.env",
+        "./apps/mcp/dist/server.js"
+      ],
+      "env": {
+        "XPERI_API_URL": "http://localhost:3001"
+      }
+    }
+  }
+}

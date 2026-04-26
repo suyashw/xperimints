@@ -1,0 +1,36 @@
+{
+  "name": "@peec-lab/database",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate:dev": "prisma migrate dev",
+    "push": "prisma db push",
+    "studio": "prisma studio",
+    "build": "tsc -p tsconfig.json",
+    "lint": "echo 'no-op'",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "echo 'no tests'",
+    "clean": "rm -rf .turbo"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "prisma": "^5.22.0",
+    "typescript": "^5.6.3"
+  },
+  "prisma": {
+    "schema": "prisma/schema.prisma"
+  }
+}

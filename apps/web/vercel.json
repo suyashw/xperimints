@@ -1,0 +1,4 @@
+{
+  "buildCommand": "cd ../.. && pnpm turbo run build --filter=@peec-lab/web",
+  "framework": "nextjs"
+}

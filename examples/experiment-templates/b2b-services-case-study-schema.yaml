@@ -1,0 +1,14 @@
+id: b2b-case-study-schema-2026-04
+name: "Add Article + Case Study schema to /case-studies/*"
+hypothesis: "Structured Article + CaseStudy schema markup will increase citation_rate on AI engines for 'X case study' and 'how X solved Y' prompts by ≥3pp."
+treatment_url: https://example.com/case-studies/acme-rolls-out-x
+treatment_prompts:
+  - prompt_id: peec_pr_REPLACE_ME_a
+  - prompt_id: peec_pr_REPLACE_ME_b
+control_prompts:
+  - prompt_id: peec_pr_REPLACE_ME_c
+  - prompt_id: peec_pr_REPLACE_ME_d
+engines: [perplexity, chatgpt, claude]
+min_lift_pp: 3
+duration_days: auto
+share: private

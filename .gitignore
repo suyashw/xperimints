@@ -1,0 +1,80 @@
+# ─── Dependencies ────────────────────────────────────────────────
+node_modules/
+.pnpm-store/
+
+# ─── Build / cache ───────────────────────────────────────────────
+.turbo/
+.next/
+out/
+dist/
+build/
+coverage/
+.nyc_output/
+.cache/
+*.tsbuildinfo
+
+# ─── Env files (never commit secrets) ────────────────────────────
+# `.env*` covers .env, .env.local, .env.development, .env.production,
+# .env.test, .env.staging, etc. — anything but .env.example.
+.env
+.env.*
+!.env.example
+
+# ─── Secrets / cert material ─────────────────────────────────────
+# Defensive — in case someone drops a key file at the repo root.
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# ─── Logs ────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ─── Test / coverage ─────────────────────────────────────────────
+.vitest-cache/
+
+# ─── OS / editor cruft ───────────────────────────────────────────
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+.idea/
+.history/
+# We keep .cursor/ checked in (project-scoped MCP config + commands)
+# but ignore IDE-private overrides that some setups create alongside it.
+.vscode/*.local.json
+
+# ─── Vercel ──────────────────────────────────────────────────────
+.vercel/
+
+# ─── Prisma local-only artefacts ─────────────────────────────────
+# We do commit prisma/schema.prisma + checked-in migrations; this
+# only excludes the dev shadow-db migrations Prisma writes during
+# `prisma migrate dev`.
+prisma/migrations/dev/
+
+# ─── Project-local secrets / runtime caches ──────────────────────
+# Peec OAuth registers a client per redirectUri and caches the
+# resulting client_id at the repo root so subsequent connects don't
+# hit the registration rate limit. The client_id is non-secret on
+# its own (PKCE makes it useless without our verifier) but the file
+# is environment-specific, so we keep it out of version control.
+.peec-oauth-clients.json
+
+# Temporary scratch files used by ad-hoc dev scripts.
+tmp/
+temp/
+*.swp.tmp
+
+# Note: we deliberately *do* commit `apps/web/next-env.d.ts` per the
+# Next.js convention — it's a tiny types reference file that should be
+# in version control even though it's auto-regenerated on each build.

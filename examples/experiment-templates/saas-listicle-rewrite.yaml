@@ -1,0 +1,14 @@
+id: saas-listicle-rewrite-2026-04
+name: "Rewrite /best-crm-for-startups with FAQ + comparison table"
+hypothesis: "Adding an FAQ block and a product comparison table will lift visibility on Perplexity and ChatGPT by ≥5pp on startup-CRM queries."
+treatment_url: https://example.com/best-crm-for-startups
+treatment_prompts:
+  - prompt_id: peec_pr_REPLACE_ME_a
+  - prompt_id: peec_pr_REPLACE_ME_b
+control_prompts:
+  - prompt_id: peec_pr_REPLACE_ME_c
+  - prompt_id: peec_pr_REPLACE_ME_d
+engines: [perplexity, chatgpt, gemini]
+min_lift_pp: 5
+duration_days: auto
+share: public

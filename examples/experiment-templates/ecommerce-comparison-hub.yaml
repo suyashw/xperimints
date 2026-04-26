@@ -1,0 +1,14 @@
+id: ecommerce-comparison-hub-2026-04
+name: "Build /vs/ comparison hub for top 10 product categories"
+hypothesis: "A canonical comparison hub will lift visibility on shopping-intent prompts by ≥4pp on Gemini and Google AI Overviews."
+treatment_url: https://shop.example.com/vs/
+treatment_prompts:
+  - prompt_id: peec_pr_REPLACE_ME_a
+  - prompt_id: peec_pr_REPLACE_ME_b
+control_prompts:
+  - prompt_id: peec_pr_REPLACE_ME_c
+  - prompt_id: peec_pr_REPLACE_ME_d
+engines: [gemini, chatgpt, google_ai_overview]
+min_lift_pp: 4
+duration_days: 21
+share: public

@@ -1,0 +1,29 @@
+{
+  "name": "xperimints",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Xperimints — AI-Visibility A/B Experiment Lab built on Peec MCP.",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean && rm -rf node_modules .turbo",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json,yaml,yml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,md,json,yaml,yml}\"",
+    "db:generate": "pnpm --filter @peec-lab/database run generate",
+    "db:migrate": "pnpm --filter @peec-lab/database run migrate:dev",
+    "db:push": "pnpm --filter @peec-lab/database run push"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "prettier": "^3.3.3",
+    "turbo": "^2.5.0",
+    "typescript": "^5.6.3"
+  }
+}

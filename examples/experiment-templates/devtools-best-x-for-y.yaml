@@ -1,0 +1,16 @@
+id: devtools-best-x-for-y-2026-04
+name: "Expand 'best deploy tool for X' coverage with 4 new sub-pages"
+hypothesis: "Targeting four under-served 'best X for Y' ghost prompts (mined via list_search_queries) will lift our visibility on those exact queries by ≥6pp."
+treatment_url: https://devtool.example.com/best/
+treatment_prompts:
+  - prompt_id: peec_pr_REPLACE_ME_a
+  - prompt_id: peec_pr_REPLACE_ME_b
+  - prompt_id: peec_pr_REPLACE_ME_c
+  - prompt_id: peec_pr_REPLACE_ME_d
+control_prompts:
+  - prompt_id: peec_pr_REPLACE_ME_e
+  - prompt_id: peec_pr_REPLACE_ME_f
+engines: [perplexity, chatgpt, gemini]
+min_lift_pp: 6
+duration_days: auto
+share: public

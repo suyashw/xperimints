@@ -1,0 +1,14 @@
+id: agency-author-bios-citations-2026-04
+name: "Add author bios + primary-source citations to /resources/*"
+hypothesis: "Author bios with credentials + primary-source citations on every blog post will lift sentiment and visibility on industry-expert prompts by ≥4pp."
+treatment_url: https://agency.example.com/resources/
+treatment_prompts:
+  - prompt_id: peec_pr_REPLACE_ME_a
+  - prompt_id: peec_pr_REPLACE_ME_b
+control_prompts:
+  - prompt_id: peec_pr_REPLACE_ME_c
+  - prompt_id: peec_pr_REPLACE_ME_d
+engines: [perplexity, chatgpt, claude, gemini]
+min_lift_pp: 4
+duration_days: 28
+share: public

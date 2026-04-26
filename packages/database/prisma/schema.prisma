@@ -1,0 +1,369 @@
+// Prisma schema for the Peec AI A/B Experiment Lab.
+// See PLAN.md §4 for the design rationale.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"] // Vercel runtime
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Enums (mirror packages/shared/src/enums.ts — kept in lockstep)
+// ──────────────────────────────────────────────────────────────────────────────
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum IntegrationType {
+  PEEC
+  GITHUB
+  VERCEL
+  LINEAR
+}
+
+enum IntegrationStatus {
+  ACTIVE
+  NEEDS_REAUTH
+  DISABLED
+}
+
+enum ExperimentStatus {
+  DRAFT
+  SCHEDULED
+  RUNNING
+  ANALYZING
+  WIN
+  LOSS
+  INCONCLUSIVE
+  CANCELLED
+  ERRORED
+}
+
+enum SnapshotKind {
+  BASELINE
+  DAILY
+  FINAL
+}
+
+enum Verdict {
+  WIN
+  LOSS
+  INCONCLUSIVE
+}
+
+enum EventType {
+  CREATED
+  POWER_ANALYZED
+  BASELINE_CAPTURED
+  LAUNCHED
+  SNAPSHOTTED
+  RESULT_COMPUTED
+  LINEAR_TICKET_CREATED
+  PR_COMMENTED
+  PEEC_TOPIC_CREATED
+  PEEC_TAG_CREATED
+  ERROR
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Models
+// ──────────────────────────────────────────────────────────────────────────────
+
+model Organization {
+  id                     String                  @id @default(cuid())
+  name                   String
+  slug                   String                  @unique
+  createdAt              DateTime                @default(now())
+  members                Membership[]
+  experiments            Experiment[]
+  integrations           Integration[]
+  peecProjects           PeecProject[]
+  promptHypothesisCaches PromptHypothesisCache[]
+  actionGenerations      ActionGenerationCache[]
+}
+
+model User {
+  id          String       @id @default(cuid())
+  // Matches the Clerk user id so we can resolve the caller in O(1).
+  // Kept around for forward-compat with Clerk; unused by the in-app
+  // email/password flow which writes `passwordHash` instead.
+  clerkId     String?      @unique
+  email       String       @unique
+  name        String?
+  // bcrypt hash for the local email/password flow. Null only for users
+  // provisioned via Clerk or seed scripts (which currently bypass login).
+  passwordHash String?
+  // Timestamp the user finished the post-signup onboarding (i.e. clicked
+  // through the Peec connection step). Null = brand-new account that
+  // should land on `/onboarding`; non-null = send straight to /dashboard
+  // on next login. We only ever set this once per user.
+  onboardedAt DateTime?
+  createdAt   DateTime     @default(now())
+  memberships Membership[]
+}
+
+model Membership {
+  id             String       @id @default(cuid())
+  userId         String
+  organizationId String
+  role           Role         @default(MEMBER)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+}
+
+model Integration {
+  id                    String            @id @default(cuid())
+  organizationId        String
+  type                  IntegrationType
+  // KMS-encrypted blob (envelope encryption with AES-GCM data key). See PLAN.md §5.8.
+  credentialsCiphertext Bytes
+  credentialsIv         Bytes
+  credentialsTag        Bytes
+  // e.g. { repo: "acme/site", defaultBranch: "main" }
+  config                Json              @default("{}")
+  status                IntegrationStatus @default(ACTIVE)
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  organization          Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, type])
+}
+
+model PeecProject {
+  id                String       @id @default(cuid())
+  organizationId    String
+  // Upstream Peec id from list_projects.
+  peecProjectId     String
+  name              String
+  cachedPromptCount Int          @default(0)
+  cachedBrandCount  Int          @default(0)
+  // model_ids from list_models
+  cachedModels      String[]     @default([])
+  // raw rows from list_topics
+  cachedTopics      Json         @default("[]")
+  cachedTags        Json         @default("[]")
+  // Analytics caches — refreshed by PeecSyncService alongside the entity caches.
+  // Each is a columnar payload: { columns: string[], rows: unknown[][] }.
+  // get_brand_report with no dimensions → totals per brand (one row per brand).
+  cachedBrandTotals       Json         @default("{}")
+  // get_brand_report dimensions=['prompt_id'] → per-prompt visibility per brand.
+  cachedPromptVisibility  Json         @default("{}")
+  // get_brand_report dimensions=['model_id'] → per-engine visibility per brand.
+  cachedEngineVisibility  Json         @default("{}")
+  // get_url_report → top URLs already cited by Peec models.
+  cachedTopUrls           Json         @default("{}")
+  // list_prompts raw columnar payload — used to map prompt_id → prompt_text in
+  // the dashboard's "Prompt visibility" card so users see the question, not
+  // the opaque pr_… cuid.
+  cachedPrompts           Json         @default("{}")
+  // get_actions(scope='overview') → Peec's own AI-recommended next actions.
+  // Drives the "Suggested actions" card on the dashboard so users have a
+  // direct on-ramp from "what's wrong" to "experiment to fix it".
+  cachedActions           Json         @default("[]")
+  // list_search_queries → top fan-out queries users are actually asking
+  // AI engines about, in this project's window. Powers the dashboard's
+  // "Demand signal" card so users can pick treatment/control prompts
+  // grounded in what people are searching for, not just what they
+  // already track in Peec. Same columnar payload shape as the
+  // analytics caches above.
+  cachedSearchQueries     Json         @default("{}")
+  // One-sentence project summary surfaced as the dashboard header subtitle.
+  // Generated each sync from the project name + cached brand/topic/prompt
+  // signals — via OpenAI when OPENAI_API_KEY is set, otherwise a
+  // deterministic heuristic. We cache the string so the dashboard never
+  // makes the call at render time and never has to fall back to leaking
+  // the raw peec_project_id in the UI.
+  cachedDescription String?
+  lastSyncedAt      DateTime?
+  // Last refresh attempt that failed (cleared on the next successful sync).
+  // Drives the dashboard's status pill: pill is green ("Live") only when
+  // there is no recorded error AND lastSyncedAt is < 24h old; otherwise we
+  // show "Sync failed" / "Stale" so the user knows to click Refresh.
+  lastSyncError     String?
+  lastSyncErrorAt   DateTime?
+  experiments       Experiment[]
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, peecProjectId])
+}
+
+model Experiment {
+  id                         String               @id @default(cuid())
+  organizationId             String
+  peecProjectId              String
+  name                       String
+  hypothesis                 String               @db.Text
+  status                     ExperimentStatus     @default(DRAFT)
+  treatmentUrl               String
+  // Markdown from get_url_content at baseline / launch+1d.
+  treatmentUrlSnapshotBefore String?              @db.Text
+  treatmentUrlSnapshotAfter  String?              @db.Text
+  // Peec prompt ids
+  treatmentPromptIds         String[]
+  controlPromptIds           String[]
+  // Empty array = "all engines on the project" (resolved via list_models)
+  engineIds                  String[]
+  // Peec topic_id created via create_topic — for clean grouping in Peec's UI.
+  peecTopicId                String?
+  peecTagId                  String?
+  minLiftPp                  Float
+  durationDays               Int                  @default(14)
+  launchAt                   DateTime?
+  endsAt                     DateTime?
+  githubPrUrl                String?
+  githubPrSha                String?
+  vercelDeploymentId         String?
+  // Reproducible permutation tests (PLAN.md §5.5).
+  randomSeed                 Int                  @default(42)
+  // For the public /r/{slug} share page.
+  shareSlug                  String               @unique
+  isPublic                   Boolean              @default(false)
+  createdById                String?
+  createdAt                  DateTime             @default(now())
+  updatedAt                  DateTime             @updatedAt
+  snapshots                  ExperimentSnapshot[]
+  result                     ExperimentResult?
+  events                     ExperimentEvent[]
+  organization               Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  peecProject                PeecProject          @relation(fields: [peecProjectId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([endsAt])
+}
+
+model ExperimentSnapshot {
+  id            String       @id @default(cuid())
+  experimentId  String
+  capturedAt    DateTime
+  kind          SnapshotKind
+  // { promptId: { engineId: { visibility, share_of_voice, ... } } }
+  brandMetrics  Json         @default("{}")
+  // From get_url_report — keyed by URL.
+  urlMetrics    Json         @default("{}")
+  // From get_domain_report — keyed by domain.
+  domainMetrics Json         @default("{}")
+  experiment    Experiment   @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+
+  @@index([experimentId, capturedAt])
+}
+
+model ExperimentResult {
+  id                 String     @id @default(cuid())
+  experimentId       String     @unique
+  computedAt         DateTime   @default(now())
+  // { engineId: { lift_pp, ci_low, ci_high, p_value, p_value_corrected } }
+  liftByEngine       Json
+  // { brandId: { sov_delta, citation_delta } } from list_brands cross-ref
+  competitorMovement Json       @default("{}")
+  // Raw payload from get_actions
+  recommendations    Json       @default("[]")
+  // Top chat ids + summaries from list_chats + get_chat
+  evidenceChats      Json       @default("[]")
+  overallPValue      Float
+  verdict            Verdict
+  reportMarkdown     String     @db.Text
+  reportImageUrl     String?
+  experiment         Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+}
+
+model ExperimentEvent {
+  id           String     @id @default(cuid())
+  experimentId String
+  type         EventType
+  payload      Json       @default("{}")
+  createdAt    DateTime   @default(now())
+  experiment   Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+
+  @@index([experimentId, createdAt])
+}
+
+/// Per-prompt hypothesis snapshot, keyed by (organization, peec prompt id).
+///
+/// Backs the dashboard's prompt-inspector modal: opening the modal returns
+/// the cached row instantly instead of round-tripping through Peec MCP +
+/// OpenAI on every click. The cache is invalidated *only* by the user
+/// clicking "Re-analyze" in the modal (which sends `force: true` to the
+/// API and triggers an upsert). Underlying Peec data refreshes do not
+/// implicitly invalidate — we'd rather show a slightly stale hypothesis
+/// than burn an OpenAI roundtrip the user didn't ask for.
+model PromptHypothesisCache {
+  id             String       @id @default(cuid())
+  organizationId String
+  // Upstream Peec prompt id (e.g. pr_…). Unique per org.
+  promptId       String
+  // Full PromptHypothesisResult JSON. Stored verbatim so the read path is
+  // one Prisma round-trip and the response shape matches a fresh compute.
+  result         Json
+  computedAt     DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, promptId])
+  @@index([organizationId])
+}
+
+/// Generated content backing the per-action "Generate" button on
+/// /experiments/new. Each row stores one AI-produced artefact (FAQ Q&A
+/// list, blog draft, JSON-LD snippet, comparison table, etc.) for one
+/// action card so the user can land on the page after a reload and see
+/// their previous generation already filled in.
+///
+/// Keyed by (organizationId, actionId) where actionId is a deterministic
+/// hash of (promptId, kind, slug(title)). That keeps generations stable
+/// even when the underlying action plan is recomputed, as long as the
+/// kind+title pair is unchanged. When titles change (e.g. after a
+/// "Re-analyze") the old generations become orphans; we don't proactively
+/// clean those up since they're cheap to keep around and the user might
+/// re-arrive at the same title later.
+model ActionGenerationCache {
+  id             String       @id @default(cuid())
+  organizationId String
+  /// Upstream Peec prompt id this generation belongs to. Indexed so the
+  /// page-load hydration query can fetch all generations for one prompt
+  /// in a single round-trip.
+  promptId       String
+  /// Stable hash identifying the action card this generation belongs to.
+  /// Computed by `actionIdFor(promptId, kind, title)` in the API service.
+  actionId       String
+  /// ActionKind value (faq | blog | schema_markup | …). Stored for
+  /// debugging / future filtering; the canonical source of truth for the
+  /// action's metadata is still PromptHypothesisCache.result.actionPlan.
+  actionKind     String
+  /// Free-form generated body. May be markdown, JSON-LD, or plain text
+  /// depending on the action kind — see `format` for the hint to give
+  /// the renderer / clipboard.
+  content        String
+  /// One of "markdown" | "json" | "text". Drives syntax-highlighting and
+  /// the "Copy as …" affordance in the UI.
+  format         String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, actionId])
+  @@index([organizationId, promptId])
+}
+
+model WebhookLog {
+  id          String    @id @default(cuid())
+  source      String // github | vercel
+  eventType   String?
+  headers     Json
+  body        Json
+  signature   String?
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+  error       String?
+
+  @@index([source, processedAt])
+}

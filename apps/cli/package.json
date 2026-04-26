@@ -1,0 +1,29 @@
+{
+  "name": "peec-lab",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Run a Peec MCP experiment from the terminal — `npx peec-lab init`, `validate`, or `power`.",
+  "type": "module",
+  "bin": {
+    "peec-lab": "./dist/cli.js"
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx ./src/cli.ts",
+    "lint": "echo 'no-op'",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@peec-lab/mcp-clients": "workspace:*",
+    "@peec-lab/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "tsx": "^4.16.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  }
+}

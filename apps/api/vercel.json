@@ -1,0 +1,9 @@
+{
+  "crons": [
+    { "path": "/v1/internal/cron/daily-snapshots", "schedule": "0 6 * * *" },
+    { "path": "/v1/internal/cron/finalize-due-experiments", "schedule": "0 7 * * *" }
+  ],
+  "functions": {
+    "src/main.ts": { "maxDuration": 60 }
+  }
+}

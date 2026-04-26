@@ -1,0 +1,31 @@
+{
+  "name": "@peec-lab/mcp",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "description": "Xperimints MCP server — exposes the experiment lab to Cursor / Claude Desktop / any MCP host as the `xperi` tool family.",
+  "bin": {
+    "xperi-mcp": "./dist/server.js"
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && chmod +x dist/server.js",
+    "dev": "tsx ./src/server.ts",
+    "start": "node dist/server.js",
+    "lint": "echo 'no-op'",
+    "test": "echo 'no tests'",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.1",
+    "@peec-lab/database": "workspace:*",
+    "@peec-lab/shared": "workspace:*",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "tsx": "^4.16.2",
+    "typescript": "^5.6.3"
+  }
+}
