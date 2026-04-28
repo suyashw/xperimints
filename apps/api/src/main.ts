@@ -7,18 +7,16 @@ import { AppModule } from './app.module.js';
 const logger = new Logger('Bootstrap');
 
 /**
- * Build a fully-configured Nest application without binding to a port.
+ * Standard Nest bootstrap. Vercel's zero-configuration NestJS support
+ * (Fluid Compute) detects this entry point automatically and intercepts
+ * `app.listen()` to wire it into the function runtime — so the same code
+ * runs locally (binds to PORT) and on Vercel (becomes a Fluid function).
  *
- * Used by:
- *   - Local dev (`bootstrap` below) — wraps this with `app.listen`.
- *   - The Vercel serverless handler in `apps/api/api/index.ts` — reuses
- *     the underlying Express instance for each invocation.
- *
- * We intentionally skip the global ValidationPipe; controllers parse input
- * with Zod via @peec-lab/shared for richer errors and no class-validator
- * runtime dependency.
+ * Do NOT gate `bootstrap()` behind `process.env.VERCEL`: on Vercel the
+ * runtime expects the entry point to start listening, otherwise it
+ * reports `Invalid export found in module`.
  */
-export async function createNestApp(): Promise<NestExpressApplication> {
+async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
   });
@@ -27,21 +25,14 @@ export async function createNestApp(): Promise<NestExpressApplication> {
     origin: (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000').split(','),
     credentials: true,
   });
-  await app.init();
-  return app;
-}
 
-async function bootstrap() {
-  const app = await createNestApp();
   const port = Number(process.env.PORT ?? 3001);
   await app.listen(port);
   logger.log(`API listening on http://localhost:${port}`);
 }
 
-if (!process.env.VERCEL) {
-  bootstrap().catch((err) => {
-    // eslint-disable-next-line no-console
-    console.error('Fatal bootstrap error', err);
-    process.exit(1);
-  });
-}
+bootstrap().catch((err) => {
+  // eslint-disable-next-line no-console
+  console.error('Fatal bootstrap error', err);
+  process.exit(1);
+});
